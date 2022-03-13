@@ -17,7 +17,10 @@
 package org.tensorflow.lite.examples.detection;
 
 import android.app.AlertDialog;
+import android.content.ContentValues;
 import android.content.DialogInterface;
+import android.database.Cursor;
+import android.database.sqlite.SQLiteDatabase;
 import android.graphics.Bitmap;
 import android.graphics.Bitmap.Config;
 import android.graphics.Canvas;
@@ -29,8 +32,11 @@ import android.graphics.RectF;
 import android.graphics.Typeface;
 import android.hardware.camera2.CameraCharacteristics;
 import android.media.ImageReader.OnImageAvailableListener;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.SystemClock;
+import android.provider.BaseColumns;
+import android.util.Log;
 import android.util.Size;
 import android.util.TypedValue;
 import android.view.LayoutInflater;
@@ -44,15 +50,25 @@ import com.google.android.gms.tasks.OnSuccessListener;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.mlkit.vision.common.InputImage;
 import com.google.mlkit.vision.face.Face;
+import com.google.mlkit.vision.face.FaceContour;
 import com.google.mlkit.vision.face.FaceDetection;
 import com.google.mlkit.vision.face.FaceDetector;
 import com.google.mlkit.vision.face.FaceDetectorOptions;
+import com.google.mlkit.vision.face.FaceLandmark;
 
 import java.io.IOException;
+import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
+import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+
 import org.tensorflow.lite.examples.detection.customview.OverlayView;
 import org.tensorflow.lite.examples.detection.customview.OverlayView.DrawCallback;
+import org.tensorflow.lite.examples.detection.database.FaceReaderContract;
+import org.tensorflow.lite.examples.detection.database.FaceReaderDbHelper;
 import org.tensorflow.lite.examples.detection.env.BorderedText;
 import org.tensorflow.lite.examples.detection.env.ImageUtils;
 import org.tensorflow.lite.examples.detection.env.Logger;
@@ -128,6 +144,10 @@ public class DetectorActivity extends CameraActivity implements OnImageAvailable
 
   private FloatingActionButton fabAdd;
 
+  private FaceReaderDbHelper faceReaderDbHelper;
+  TextView messageText;
+
+  private Map<String, LocalDateTime> blinkingTimes = new HashMap<>();
   //private HashMap<String, Classifier.Recognition> knownFaces = new HashMap<>();
 
 
@@ -148,19 +168,47 @@ public class DetectorActivity extends CameraActivity implements OnImageAvailable
             new FaceDetectorOptions.Builder()
                     .setPerformanceMode(FaceDetectorOptions.PERFORMANCE_MODE_FAST)
                     .setContourMode(FaceDetectorOptions.LANDMARK_MODE_NONE)
-                    .setClassificationMode(FaceDetectorOptions.CLASSIFICATION_MODE_NONE)
+                    .setClassificationMode(FaceDetectorOptions.CLASSIFICATION_MODE_ALL)
                     .build();
 
 
-    FaceDetector detector = FaceDetection.getClient(options);
+    FaceDetector fDetector = FaceDetection.getClient(options);
 
-    faceDetector = detector;
-
+    faceDetector = fDetector;
+    messageText = findViewById(R.id.message_text);
 
     //checkWritePermission();
 
   }
 
+  private void initDetector() {
+    faceReaderDbHelper = new FaceReaderDbHelper(getApplicationContext());
+    SQLiteDatabase db = faceReaderDbHelper.getReadableDatabase();
+
+    String[] projection = {
+            BaseColumns._ID,
+            FaceReaderContract.FaceEntry.COLUMN_NAME_FACE,
+            FaceReaderContract.FaceEntry.COLUMN_NAME_NAME
+    };
+    Cursor cursor = db.query(
+            FaceReaderContract.FaceEntry.TABLE_NAME,
+            projection,
+            null,
+            null,
+            null,
+            null,
+            null
+    );
+    while(cursor.moveToNext()) {
+      String name = cursor.getString(
+              cursor.getColumnIndexOrThrow(FaceReaderContract.FaceEntry.COLUMN_NAME_NAME));
+      String face = cursor.getString(
+              cursor.getColumnIndexOrThrow(FaceReaderContract.FaceEntry.COLUMN_NAME_FACE));
+      SimilarityClassifier.Recognition rec = new SimilarityClassifier.Recognition(face);
+      detector.register(name, rec);
+    }
+    cursor.close();
+  }
 
 
   private void onAddClick() {
@@ -189,6 +237,7 @@ public class DetectorActivity extends CameraActivity implements OnImageAvailable
                       TF_OD_API_LABELS_FILE,
                       TF_OD_API_INPUT_SIZE,
                       TF_OD_API_IS_QUANTIZED);
+      initDetector();
       //cropSize = TF_OD_API_INPUT_SIZE;
     } catch (final IOException e) {
       e.printStackTrace();
@@ -300,9 +349,11 @@ public class DetectorActivity extends CameraActivity implements OnImageAvailable
               @Override
               public void onSuccess(List<Face> faces) {
                 if (faces.size() == 0) {
+                  messageText.setText("Error!!");
                   updateResults(currTimestamp, new LinkedList<>());
                   return;
                 }
+                messageText.setText("");
                 runInBackground(
                         new Runnable() {
                           @Override
@@ -400,10 +451,16 @@ public class DetectorActivity extends CameraActivity implements OnImageAvailable
       public void onClick(DialogInterface dlg, int i) {
 
           String name = etName.getText().toString();
+          SQLiteDatabase db = faceReaderDbHelper.getWritableDatabase();
           if (name.isEmpty()) {
               return;
           }
           detector.register(name, rec);
+          ContentValues values = new ContentValues();
+          values.put(FaceReaderContract.FaceEntry.COLUMN_NAME_FACE, rec.toString());
+          values.put(FaceReaderContract.FaceEntry.COLUMN_NAME_NAME, name);
+          db.insert(FaceReaderContract.FaceEntry.TABLE_NAME, null, values);
+
           //knownFaces.put(name, rec);
           dlg.dismiss();
       }
@@ -537,6 +594,28 @@ public class DetectorActivity extends CameraActivity implements OnImageAvailable
 
           SimilarityClassifier.Recognition result = resultsAux.get(0);
 
+          if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            if (!blinkingTimes.containsKey(result.getTitle())) {
+              blinkingTimes.put(result.getTitle(), LocalDateTime.now());
+            } else {
+              LocalDateTime now = LocalDateTime.now();
+              LocalDateTime lastBlink = blinkingTimes.get(result.getTitle());
+              if(lastBlink.until(now, ChronoUnit.SECONDS) > 7) {
+                messageText.setText("ERROR NOT BLINKING!");
+              } else {
+                messageText.setText("");
+              }
+              if (face.getRightEyeOpenProbability() < 0.1 || face.getLeftEyeOpenProbability() < 0.1) {
+                blinkingTimes.put(result.getTitle(), LocalDateTime.now());
+              }
+            }
+          }
+          if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            List<FaceLandmark> lm = face.getAllLandmarks();
+            List<FaceContour> fc = face.getAllContours();
+            Log.println(100, "Move", "X: " + String.valueOf(face.getHeadEulerAngleX()) + ", Y: " + String.valueOf(face.getHeadEulerAngleY()) + " Z: " + String.valueOf(face.getHeadEulerAngleZ()));
+            Log.println(100, "Landmark", face.getAllLandmarks().toString());
+          }
           extra = result.getExtra();
 //          Object extra = result.getExtra();
 //          if (extra != null) {

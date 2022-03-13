@@ -17,6 +17,10 @@ package org.tensorflow.lite.examples.detection.tflite;
 
 import android.graphics.Bitmap;
 import android.graphics.RectF;
+import android.text.TextUtils;
+
+import java.io.ByteArrayOutputStream;
+import java.util.Collections;
 import java.util.List;
 
 /** Generic interface for interacting with different recognition engines. */
@@ -69,6 +73,45 @@ public interface SimilarityClassifier {
       this.crop = null;
     }
 
+    public Recognition(final String rec) {
+      this.id = getValue(rec, "id: ");
+      this.title = getValue(rec, "title: ");
+      this.distance = Float.parseFloat(getValue(rec, "distanceRaw: "));
+      String locationRaw = getValue(rec, "RectF(");
+      String[] locationRawParsed = locationRaw.substring(0, locationRaw.length() - 1).split(",");
+      float left = Float.parseFloat(locationRawParsed[0]);
+      float top = Float.parseFloat(locationRawParsed[1]);
+      float right = Float.parseFloat(locationRawParsed[2]);
+      float bottom = Float.parseFloat(locationRawParsed[3]);
+
+      this.location = new RectF(left, top, right, bottom);
+      String extraP = getValue(rec,"extra: ");
+      if(!extraP.equals("")) {
+        String[] values = extraP.split(",");
+        float[][] array = new float[1][values.length];
+        for (int i = 0; i < values.length; i++) {
+          array[0][i] = Float.parseFloat(values[i]);
+        }
+        this.extra = array;
+      } else {
+        this.extra = null;
+      }
+      this.color = null;
+      this.crop = null;
+    }
+
+    private String getValue(final String rec, String prefix) {
+      final int prefixIndex = rec.indexOf(prefix);
+      StringBuilder result = new StringBuilder();
+      for(int i = prefixIndex + prefix.length(); i < rec.length(); i++) {
+        if(rec.charAt(i) == ';') {
+          return result.toString();
+        }
+        result.append(rec.charAt(i));
+      }
+      return result.toString();
+    }
+
     public void setExtra(Object extra) {
         this.extra = extra;
     }
@@ -104,19 +147,28 @@ public interface SimilarityClassifier {
     public String toString() {
       String resultString = "";
       if (id != null) {
-        resultString += "[" + id + "] ";
+        resultString += "id: " + id + "; ";
       }
 
       if (title != null) {
-        resultString += title + " ";
+        resultString += "title: " + title + "; ";
       }
 
       if (distance != null) {
-        resultString += String.format("(%.1f%%) ", distance * 100.0f);
+        resultString += "distance: " + String.format("(%.1f%%) ", distance * 100.0f) + "; ";
+        resultString += "distanceRaw: " + distance + "; ";
       }
 
       if (location != null) {
-        resultString += location + " ";
+        resultString += "location: " + location + "; ";
+      }
+
+      if (extra != null) {
+        StringBuilder extraJoined = new StringBuilder();
+        for (float f:((float[][]) extra)[0]) {
+          extraJoined.append(f).append(",");
+        }
+        resultString += "extra: " + extraJoined.toString() + "; ";
       }
 
       return resultString.trim();
