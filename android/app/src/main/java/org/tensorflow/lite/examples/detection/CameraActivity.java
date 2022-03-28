@@ -86,6 +86,9 @@ public abstract class CameraActivity extends AppCompatActivity
 
   protected TextView frameValueTextView, cropValueTextView, inferenceTimeTextView;
   protected ImageView bottomSheetArrowImageView;
+  protected ImageView setBlinkButton;
+  protected ImageView setFaceMovementButton;
+  protected ImageView setBothButton;
   private ImageView plusImageView, minusImageView;
   private SwitchCompat apiSwitchCompat;
   private TextView threadsTextView;
@@ -93,6 +96,7 @@ public abstract class CameraActivity extends AppCompatActivity
   private FloatingActionButton btnSwitchCam;
 
   private static final String KEY_USE_FACING = "use_facing";
+  protected static final String KEY_DETECTION_MODE = "detection_mode";
   private Integer useFacing = null;
   private String cameraId = null;
 
@@ -135,6 +139,9 @@ public abstract class CameraActivity extends AppCompatActivity
     sheetBehavior = BottomSheetBehavior.from(bottomSheetLayout);
     */
     bottomSheetArrowImageView = findViewById(R.id.bottom_sheet_arrow);
+    setFaceMovementButton = findViewById(R.id.fab_face);
+    setBlinkButton = findViewById(R.id.fab_eye);
+    setBothButton = findViewById(R.id.fab_both);
 
     btnSwitchCam = findViewById(R.id.fab_switchcam);
     /*
@@ -194,19 +201,22 @@ public abstract class CameraActivity extends AppCompatActivity
     //plusImageView.setOnClickListener(this);
     //minusImageView.setOnClickListener(this);
 
-    btnSwitchCam.setOnClickListener(new View.OnClickListener() {
-      @Override
-      public void onClick(View v) {
-        onSwitchCamClick();
-      }
+    btnSwitchCam.setOnClickListener(v -> switchCamera());
+
+    setBlinkButton.setOnClickListener(v -> {
+        intent.putExtra(KEY_DETECTION_MODE, "isBlinkDetection");
+        restartWith(intent);
     });
 
-  }
+    setFaceMovementButton.setOnClickListener(v -> {
+        intent.putExtra(KEY_DETECTION_MODE, "isMovementDetection");
+        restartWith(intent);
+    });
 
-  private void onSwitchCamClick() {
-
-    switchCamera();
-
+    setBothButton.setOnClickListener(v -> {
+        intent.putExtra(KEY_DETECTION_MODE, "isBothDetection");
+        restartWith(intent);
+    });
   }
 
   public void switchCamera() {

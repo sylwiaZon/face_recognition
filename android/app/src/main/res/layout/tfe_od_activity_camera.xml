@@ -21,20 +21,19 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:background="#00000000">
 
-    <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
-        xmlns:tools="http://schemas.android.com/tools"
+    <RelativeLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:background="@android:color/black"
         android:orientation="vertical">
 
 
-        <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
-            xmlns:tools="http://schemas.android.com/tools"
+        <FrameLayout
             android:id="@+id/container"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            tools:context="org.tensorflow.demo.CameraActivity" />
+            tools:context="org.tensorflow.demo.CameraActivity" >
+        </FrameLayout>
 
         <androidx.appcompat.widget.Toolbar
             android:id="@+id/toolbar"
@@ -53,6 +52,59 @@
 
     </RelativeLayout>
 
+  <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:orientation="vertical">
+
+        <com.google.android.material.floatingactionbutton.FloatingActionButton
+            android:id="@+id/fab_switchcam"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:tint="@android:color/white"
+            android:src="@drawable/ic_baseline_switch_camera_24"
+            android:layout_margin="16dp"
+            />
+
+        <com.google.android.material.floatingactionbutton.FloatingActionButton
+            android:id="@+id/fab_add"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:tint="@android:color/white"
+            android:src="@android:drawable/ic_input_add"
+            android:layout_margin="16dp"
+            />
+
+          <com.google.android.material.floatingactionbutton.FloatingActionButton
+              android:id="@+id/fab_face"
+              android:layout_width="match_parent"
+              android:layout_height="wrap_content"
+              android:tint="@android:color/white"
+              android:src="@drawable/ic_baseline_face_24"
+              android:layout_margin="16dp"
+              />
+
+
+          <com.google.android.material.floatingactionbutton.FloatingActionButton
+              android:id="@+id/fab_eye"
+              android:layout_width="match_parent"
+              android:layout_height="wrap_content"
+              android:tint="@android:color/white"
+              android:src="@drawable/ic_baseline_remove_red_eye_24"
+              android:layout_margin="16dp"
+              />
+
+
+          <com.google.android.material.floatingactionbutton.FloatingActionButton
+              android:id="@+id/fab_both"
+              android:layout_width="match_parent"
+              android:layout_height="wrap_content"
+              android:tint="@android:color/white"
+              android:src="@drawable/ic_baseline_bug_report_24"
+              android:layout_margin="16dp"
+              />
+
+        </LinearLayout>
     <TextView
         android:id="@+id/message_text"
         android:layout_width="match_parent"
@@ -62,27 +114,7 @@
         android:textSize="30sp"
         android:gravity="center"/>
 
-    <com.google.android.material.floatingactionbutton.FloatingActionButton
-        android:id="@+id/fab_switchcam"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="start|top"
-        android:tint="@android:color/white"
-        android:src="@drawable/ic_baseline_switch_camera_24"
-        android:layout_margin="16dp"
-        />
 
-
-
-    <com.google.android.material.floatingactionbutton.FloatingActionButton
-        android:id="@+id/fab_add"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="end|top"
-        android:tint="@android:color/white"
-        android:src="@android:drawable/ic_input_add"
-        android:layout_margin="16dp"
-        />
 
 
 <!--    <View-->
