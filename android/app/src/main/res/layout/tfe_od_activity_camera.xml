@@ -96,11 +96,53 @@
 
 
           <com.google.android.material.floatingactionbutton.FloatingActionButton
-              android:id="@+id/fab_both"
+              android:id="@+id/fab_both_one"
               android:layout_width="match_parent"
               android:layout_height="wrap_content"
               android:tint="@android:color/white"
-              android:src="@drawable/ic_baseline_bug_report_24"
+              android:src="@drawable/ic_baseline_looks_one_24"
+              android:layout_margin="16dp"
+              android:visibility="gone"
+              />
+
+
+          <com.google.android.material.floatingactionbutton.FloatingActionButton
+              android:id="@+id/fab_both_two"
+              android:layout_width="match_parent"
+              android:layout_height="wrap_content"
+              android:tint="@android:color/white"
+              android:src="@drawable/ic_baseline_looks_two_24"
+              android:layout_margin="16dp"
+              android:visibility="gone"
+              />
+
+
+          <com.google.android.material.floatingactionbutton.FloatingActionButton
+              android:id="@+id/fab_both_three"
+              android:layout_width="match_parent"
+              android:layout_height="wrap_content"
+              android:tint="@android:color/white"
+              android:src="@drawable/ic_baseline_looks_3_24"
+              android:layout_margin="16dp"
+              />
+
+
+          <com.google.android.material.floatingactionbutton.FloatingActionButton
+              android:id="@+id/fab_both_four"
+              android:layout_width="match_parent"
+              android:layout_height="wrap_content"
+              android:tint="@android:color/white"
+              android:src="@drawable/ic_baseline_looks_4_24"
+              android:layout_margin="16dp"
+              />
+
+
+          <com.google.android.material.floatingactionbutton.FloatingActionButton
+              android:id="@+id/fab_both_five"
+              android:layout_width="match_parent"
+              android:layout_height="wrap_content"
+              android:tint="@android:color/white"
+              android:src="@drawable/ic_baseline_looks_5_24"
               android:layout_margin="16dp"
               />
 

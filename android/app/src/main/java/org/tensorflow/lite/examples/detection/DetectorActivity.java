@@ -62,6 +62,7 @@ import java.lang.reflect.Array;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -108,7 +109,6 @@ public class DetectorActivity extends CameraActivity implements OnImageAvailable
   private long lastProcessingTimeMs;
   private Bitmap rgbFrameBitmap = null;
   private Bitmap croppedBitmap = null;
-  private Bitmap cropCopyBitmap = null;
 
   private boolean computingDetection = false;
   private boolean addPending = false;
@@ -130,15 +130,13 @@ public class DetectorActivity extends CameraActivity implements OnImageAvailable
   // here the face is cropped and drawn
   private Bitmap faceBmp = null;
 
-  private boolean isMoving = false;
-  private boolean isBlinking = false;
-
   private FloatingActionButton fabAdd;
 
   private FaceReaderDbHelper faceReaderDbHelper;
   TextView messageText;
 
-  private Map<String, LocalDateTime> blinkingTimes = new HashMap<>();
+  private Map<String, ArrayList<Double>> blinkingLeftEye = new HashMap<>();
+  private Map<String, ArrayList<Double>> blinkingRightEye = new HashMap<>();
   private Map<String, ArrayList<Double>> faceMovementsX = new HashMap<>();
   private Map<String, ArrayList<Double>> faceMovementsY = new HashMap<>();
 
@@ -451,7 +449,7 @@ public class DetectorActivity extends CameraActivity implements OnImageAvailable
     return Math.sqrt(standardDeviation/length);
   }
 
-  private void checkMovement(String face, Map<String, ArrayList<Double>> faceMovements, double x) {
+  private double checkMovement(String face, Map<String, ArrayList<Double>> faceMovements, double x) {
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
       ArrayList<Double> array;
       if (!faceMovements.containsKey(face)) {
@@ -462,44 +460,107 @@ public class DetectorActivity extends CameraActivity implements OnImageAvailable
       array.add(x);
       faceMovements.put(face, array);
       double stDeviation = getStandardDeviation(array);
-      if(stDeviation < 2) {
-        isMoving = false;
-      } else {
-        isMoving = true;
-      }
+      return calculateMovingProbability(stDeviation);
     }
+    return 0.0;
   }
 
-  private void checkBlinking(SimilarityClassifier.Recognition result, Face face) {
+  private double calculateMovingProbability(double stDev) {
+    if(stDev <= 0.7) {
+      return (stDev / 0.7) * 0.6;
+    }
+    if(stDev <= 0.9) {
+      return ((stDev - 0.7) / 0.2) * 0.1 + 0.7;
+    }
+    if(stDev <= 1.1) {
+      return ((stDev - 1.1) / 0.2) * 0.1 + 0.8;
+    }
+    if(stDev <= 2) {
+      return ((stDev - 2) / 0.9) * 0.2 + 1;
+    }
+    return 1.0;
+  }
+
+  private double checkBlinking(String face, Map<String, ArrayList<Double>> blinking, double x) {
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-      if (!blinkingTimes.containsKey(result.getTitle())) {
-        blinkingTimes.put(result.getTitle(), LocalDateTime.now());
+      ArrayList<Double> array;
+      if (!blinking.containsKey(face)) {
+        array = new ArrayList<>();
       } else {
-        LocalDateTime now = LocalDateTime.now();
-        LocalDateTime lastBlink = blinkingTimes.get(result.getTitle());
-        if(lastBlink.until(now, ChronoUnit.SECONDS) > 7) {
-          isBlinking = false;
-        } else {
-          isBlinking = true;
-        }
-        if (face.getRightEyeOpenProbability() < 0.1 || face.getLeftEyeOpenProbability() < 0.1) {
-          blinkingTimes.put(result.getTitle(), LocalDateTime.now());
-        }
+        array = blinking.get(face);
       }
+      array.add(x);
+      blinking.put(face, array);
+      return calculateBlinkingProbability(array);
     }
+    return 0.0;
   }
 
-  private void checkMovement(SimilarityClassifier.Recognition result, Face face) {
+  private double calculateBlinkingProbability(ArrayList<Double> array) {
+    double min = Collections.min(array);
+    double max = Collections.max(array);
+    double diff = max - min;
+
+    if(diff <= 0.1) {
+      return 0.0;
+    }
+    if(diff <= 0.9) {
+      return ((diff - 0.1) / 0.8);
+    }
+    return 1.0;
+  }
+
+  private EyeMovement checkBlinking(SimilarityClassifier.Recognition result, Face face) {
+    double left = face.getLeftEyeOpenProbability();
+    double right = face.getRightEyeOpenProbability();
+
+    double blinkingLeft = checkBlinking(result.getTitle(), blinkingLeftEye, left);
+    double blinkingRight = checkBlinking(result.getTitle(), blinkingRightEye, right);
+    return new EyeMovement(blinkingLeft, blinkingRight);
+  }
+
+  private boolean isBlinking(SimilarityClassifier.Recognition result, Face face) {
+    EyeMovement eyeMovement = checkBlinking(result, face);
+
+    if(eyeMovement.blinkingLeft > 0.9)
+      return true;
+    if(eyeMovement.blinkingRight > 0.9)
+      return true;
+    return false;
+  }
+
+  private FaceMovement checkMovement(SimilarityClassifier.Recognition result, Face face) {
     double x = face.getHeadEulerAngleX();
     double y = face.getHeadEulerAngleY();
 
-    checkMovement(result.getTitle(), faceMovementsX, x);
-    checkMovement(result.getTitle(), faceMovementsY, y);
+    double movementX = checkMovement(result.getTitle(), faceMovementsX, x);
+    double movementY = checkMovement(result.getTitle(), faceMovementsY, y);
+    return new FaceMovement(movementX, movementY);
+  }
+
+  private boolean isMoving(SimilarityClassifier.Recognition result, Face face) {
+    FaceMovement faceMovement = checkMovement(result, face);
+
+    if(faceMovement.movementX > 0.9)
+      return true;
+    if(faceMovement.movementY > 0.9)
+      return true;
+    return false;
+  }
+
+  private double getBothProbability(SimilarityClassifier.Recognition result, Face face, double facePerc, double eyePerc) {
+    FaceMovement faceMovement = checkMovement(result, face);
+    EyeMovement eyeMovement = checkBlinking(result, face);
+
+    double faceMovementValue = Math.max(faceMovement.movementX, faceMovement.movementY);
+    double eyeMovementValue = Math.max(eyeMovement.blinkingLeft, eyeMovement.blinkingRight);
+
+    double val = faceMovementValue * facePerc + eyeMovementValue * eyePerc;
+    return val;
   }
 
   private void onFacesDetected(long currTimestamp, List<Face> faces, boolean add) {
 
-    cropCopyBitmap = Bitmap.createBitmap(croppedBitmap);
     final Paint paint = new Paint();
     paint.setColor(Color.RED);
     paint.setStyle(Style.STROKE);
@@ -575,27 +636,52 @@ public class DetectorActivity extends CameraActivity implements OnImageAvailable
 
           SimilarityClassifier.Recognition result = resultsAux.get(0);
 
-          Intent intent = getIntent();
-          String detectionMode = intent.getStringExtra(KEY_DETECTION_MODE) == null
-                  ? "isBothDetection"
-                  : intent.getStringExtra(KEY_DETECTION_MODE);
+          if(result.getDistance() < 1.0) {
+            Intent intent = getIntent();
+            String detectionMode = intent.getStringExtra(KEY_DETECTION_MODE) == null
+                    ? FACE_BOTH_ONE_DETECTION
+                    : intent.getStringExtra(KEY_DETECTION_MODE);
 
-          if(detectionMode != null) {
-            if (detectionMode.equals("isBlinkDetection") || detectionMode.equals("isBothDetection")) {
-              checkBlinking(result, face);
-            }
-            if (detectionMode.equals("isMovementDetection") || detectionMode.equals("isBothDetection")) {
-              checkMovement(result, face);
-            }
+            if(detectionMode != null) {
+              boolean isMoving = false;
+              boolean isBlinking = false;
+              if (detectionMode.equals(FACE_BLINK_DETECTION)) {
+                isBlinking = isBlinking(result, face);
+              }
+              if (detectionMode.equals(FACE_MOVEMENT_DETECTION)) {
+                isMoving = isMoving(result, face);
+              }
+              String text = "";
+              if (!isBlinking && detectionMode.equals(FACE_BLINK_DETECTION)) {
+                text = "Not blinking!";
+              } else if (!isMoving && detectionMode.equals(FACE_MOVEMENT_DETECTION)) {
+                text += " Not moving!";
+              }
+              if(detectionMode.equals(FACE_BOTH_ONE_DETECTION)) {
+                double probability = getBothProbability(result, face, 0.5, 0.5);
+                text += probability;
+              }
+              if(detectionMode.equals(FACE_BOTH_TWO_DETECTION)) {
+                double probability = getBothProbability(result, face, 0.7, 0.3);
+                text += probability;
+              }
+              if(detectionMode.equals(FACE_BOTH_THREE_DETECTION)) {
+                double probability = getBothProbability(result, face, 0.3, 0.7);
+                text += probability;
+              }
+              if(detectionMode.equals(FACE_BOTH_FOUR_DETECTION)) {
+                double probability = getBothProbability(result, face, 0, 1);
+                text += probability;
+              }
+              if(detectionMode.equals(FACE_BOTH_FIVE_DETECTION)) {
+                double probability = getBothProbability(result, face, 1, 0);
+                text += probability;
+              }
 
-            String text = "";
-            if (!isBlinking && (detectionMode.equals("isBlinkDetection") || detectionMode.equals("isBothDetection"))) {
-              text = "Not blinking!";
-            } else if (!isMoving && (detectionMode.equals("isMovementDetection") || detectionMode.equals("isBothDetection"))) {
-              text += " Not moving!";
+              messageText.setText(text);
             }
-
-            messageText.setText(text);
+          } else {
+            messageText.setText("Face not detected");
           }
 
           extra = result.getExtra();
@@ -646,4 +732,39 @@ public class DetectorActivity extends CameraActivity implements OnImageAvailable
   }
 
 
+  private class FaceMovement {
+    private double movementX;
+    private double movementY;
+
+    public FaceMovement(double movementX, double movementY) {
+      this.movementX = movementX;
+      this.movementY = movementY;
+    }
+
+    public double getMovementX() {
+      return movementX;
+    }
+
+    public double getMovementY() {
+      return movementY;
+    }
+  }
+
+  private class EyeMovement {
+    private double blinkingLeft;
+    private double blinkingRight;
+
+    public EyeMovement(double blinkingLeft, double blinkingRight) {
+      this.blinkingLeft = blinkingLeft;
+      this.blinkingRight = blinkingRight;
+    }
+
+    public double getBlinkingLeft() {
+      return blinkingLeft;
+    }
+
+    public double getBlinkingRight() {
+      return blinkingRight;
+    }
+  }
 }

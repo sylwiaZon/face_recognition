@@ -21,6 +21,7 @@ import android.app.Fragment;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.content.res.ColorStateList;
 import android.hardware.Camera;
 import android.hardware.camera2.CameraAccessException;
 import android.hardware.camera2.CameraCharacteristics;
@@ -88,15 +89,28 @@ public abstract class CameraActivity extends AppCompatActivity
   protected ImageView bottomSheetArrowImageView;
   protected ImageView setBlinkButton;
   protected ImageView setFaceMovementButton;
-  protected ImageView setBothButton;
+  protected ImageView setBothOneButton;
+  protected ImageView setBothTwoButton;
+  protected ImageView setBothThreeButton;
+  protected ImageView setBothFourButton;
+  protected ImageView setBothFiveButton;
   private ImageView plusImageView, minusImageView;
   private SwitchCompat apiSwitchCompat;
   private TextView threadsTextView;
 
   private FloatingActionButton btnSwitchCam;
 
+  private int detectionAlgorithm = 1;
+
   private static final String KEY_USE_FACING = "use_facing";
   protected static final String KEY_DETECTION_MODE = "detection_mode";
+  protected static final String FACE_MOVEMENT_DETECTION = "isMovementDetection";
+  protected static final String FACE_BLINK_DETECTION = "isBlinkDetection";
+  protected static final String FACE_BOTH_ONE_DETECTION = "isBothOneDetection";
+  protected static final String FACE_BOTH_TWO_DETECTION = "isBothTwoDetection";
+  protected static final String FACE_BOTH_THREE_DETECTION = "isBothThreeDetection";
+  protected static final String FACE_BOTH_FOUR_DETECTION = "isBothFourDetection";
+  protected static final String FACE_BOTH_FIVE_DETECTION = "isBothFiveDetection";
   private Integer useFacing = null;
   private String cameraId = null;
 
@@ -141,57 +155,14 @@ public abstract class CameraActivity extends AppCompatActivity
     bottomSheetArrowImageView = findViewById(R.id.bottom_sheet_arrow);
     setFaceMovementButton = findViewById(R.id.fab_face);
     setBlinkButton = findViewById(R.id.fab_eye);
-    setBothButton = findViewById(R.id.fab_both);
+    setBothOneButton = findViewById(R.id.fab_both_one);
+    setBothTwoButton = findViewById(R.id.fab_both_two);
+    setBothThreeButton = findViewById(R.id.fab_both_three);
+    setBothFourButton = findViewById(R.id.fab_both_four);
+    setBothFiveButton = findViewById(R.id.fab_both_five);
 
     btnSwitchCam = findViewById(R.id.fab_switchcam);
-    /*
-    ViewTreeObserver vto = gestureLayout.getViewTreeObserver();
-    vto.addOnGlobalLayoutListener(
-        new ViewTreeObserver.OnGlobalLayoutListener() {
-          @Override
-          public void onGlobalLayout() {
-            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.JELLY_BEAN) {
-              gestureLayout.getViewTreeObserver().removeGlobalOnLayoutListener(this);
-            } else {
-              gestureLayout.getViewTreeObserver().removeOnGlobalLayoutListener(this);
-            }
-            //                int width = bottomSheetLayout.getMeasuredWidth();
-            int height = gestureLayout.getMeasuredHeight();
 
-            sheetBehavior.setPeekHeight(height);
-          }
-        });
-    sheetBehavior.setHideable(false);
-
-    sheetBehavior.setBottomSheetCallback(
-        new BottomSheetBehavior.BottomSheetCallback() {
-          @Override
-          public void onStateChanged(@NonNull View bottomSheet, int newState) {
-            switch (newState) {
-              case BottomSheetBehavior.STATE_HIDDEN:
-                break;
-              case BottomSheetBehavior.STATE_EXPANDED:
-                {
-                  bottomSheetArrowImageView.setImageResource(R.drawable.icn_chevron_down);
-                }
-                break;
-              case BottomSheetBehavior.STATE_COLLAPSED:
-                {
-                  bottomSheetArrowImageView.setImageResource(R.drawable.icn_chevron_up);
-                }
-                break;
-              case BottomSheetBehavior.STATE_DRAGGING:
-                break;
-              case BottomSheetBehavior.STATE_SETTLING:
-                bottomSheetArrowImageView.setImageResource(R.drawable.icn_chevron_up);
-                break;
-            }
-          }
-
-          @Override
-          public void onSlide(@NonNull View bottomSheet, float slideOffset) {}
-        });
-    */
     frameValueTextView = findViewById(R.id.frame_info);
     cropValueTextView = findViewById(R.id.crop_info);
     inferenceTimeTextView = findViewById(R.id.inference_info);
@@ -203,18 +174,112 @@ public abstract class CameraActivity extends AppCompatActivity
 
     btnSwitchCam.setOnClickListener(v -> switchCamera());
 
+    String detectionMode = intent.getStringExtra(KEY_DETECTION_MODE) == null
+              ? FACE_BOTH_ONE_DETECTION
+              : intent.getStringExtra(KEY_DETECTION_MODE);
+
+    setBlinkButton.setBackgroundTintList(ColorStateList.valueOf(getResources().getColor(R.color.tfe_color_accent)));
+    setFaceMovementButton.setBackgroundTintList(ColorStateList.valueOf(getResources().getColor(R.color.tfe_color_accent)));
+    setBothOneButton.setBackgroundTintList(ColorStateList.valueOf(getResources().getColor(R.color.tfe_color_accent)));
+    setBothTwoButton.setBackgroundTintList(ColorStateList.valueOf(getResources().getColor(R.color.tfe_color_accent)));
+    setBothThreeButton.setBackgroundTintList(ColorStateList.valueOf(getResources().getColor(R.color.tfe_color_accent)));
+    setBothFourButton.setBackgroundTintList(ColorStateList.valueOf(getResources().getColor(R.color.tfe_color_accent)));
+    setBothFiveButton.setBackgroundTintList(ColorStateList.valueOf(getResources().getColor(R.color.tfe_color_accent)));
+
+    if(detectionMode.equals(FACE_BLINK_DETECTION)) {
+        setBlinkButton.setBackgroundTintList(ColorStateList.valueOf(getResources().getColor(R.color.tfe_color_primary_dark)));
+        setBothOneButton.setVisibility(View.VISIBLE);
+        setBothTwoButton.setVisibility(View.GONE);
+        setBothThreeButton.setVisibility(View.GONE);
+        setBothFourButton.setVisibility(View.GONE);
+        setBothFiveButton.setVisibility(View.GONE);
+    }
+    if(detectionMode.equals(FACE_MOVEMENT_DETECTION)) {
+        setFaceMovementButton.setBackgroundTintList(ColorStateList.valueOf(getResources().getColor(R.color.tfe_color_primary_dark)));
+        setBothOneButton.setVisibility(View.VISIBLE);
+        setBothTwoButton.setVisibility(View.GONE);
+        setBothThreeButton.setVisibility(View.GONE);
+        setBothFourButton.setVisibility(View.GONE);
+        setBothFiveButton.setVisibility(View.GONE);
+    }
+    if(detectionMode.equals(FACE_BOTH_ONE_DETECTION)) {
+        setBothOneButton.setBackgroundTintList(ColorStateList.valueOf(getResources().getColor(R.color.tfe_color_primary_dark)));
+        setBothOneButton.setVisibility(View.VISIBLE);
+        setBothTwoButton.setVisibility(View.GONE);
+        setBothThreeButton.setVisibility(View.GONE);
+        setBothFourButton.setVisibility(View.GONE);
+        setBothFiveButton.setVisibility(View.GONE);
+        detectionAlgorithm = 1;
+    }
+    if(detectionMode.equals(FACE_BOTH_TWO_DETECTION)) {
+        setBothTwoButton.setBackgroundTintList(ColorStateList.valueOf(getResources().getColor(R.color.tfe_color_primary_dark)));
+        setBothOneButton.setVisibility(View.GONE);
+        setBothTwoButton.setVisibility(View.VISIBLE);
+        setBothThreeButton.setVisibility(View.GONE);
+        setBothFourButton.setVisibility(View.GONE);
+        setBothFiveButton.setVisibility(View.GONE);
+        detectionAlgorithm = 2;
+    }
+    if(detectionMode.equals(FACE_BOTH_THREE_DETECTION)) {
+        setBothThreeButton.setBackgroundTintList(ColorStateList.valueOf(getResources().getColor(R.color.tfe_color_primary_dark)));
+        setBothOneButton.setVisibility(View.GONE);
+        setBothTwoButton.setVisibility(View.GONE);
+        setBothFourButton.setVisibility(View.GONE);
+        setBothFiveButton.setVisibility(View.GONE);
+        setBothThreeButton.setVisibility(View.VISIBLE);
+        detectionAlgorithm = 3;
+    }
+    if(detectionMode.equals(FACE_BOTH_FOUR_DETECTION)) {
+        setBothFourButton.setBackgroundTintList(ColorStateList.valueOf(getResources().getColor(R.color.tfe_color_primary_dark)));
+        setBothOneButton.setVisibility(View.GONE);
+        setBothTwoButton.setVisibility(View.GONE);
+        setBothThreeButton.setVisibility(View.GONE);
+        setBothFiveButton.setVisibility(View.GONE);
+        setBothFourButton.setVisibility(View.VISIBLE);
+        detectionAlgorithm = 4;
+    }
+    if(detectionMode.equals(FACE_BOTH_FIVE_DETECTION)) {
+        setBothFiveButton.setBackgroundTintList(ColorStateList.valueOf(getResources().getColor(R.color.tfe_color_primary_dark)));
+        setBothOneButton.setVisibility(View.GONE);
+        setBothTwoButton.setVisibility(View.GONE);
+        setBothThreeButton.setVisibility(View.GONE);
+        setBothFourButton.setVisibility(View.GONE);
+        setBothFiveButton.setVisibility(View.VISIBLE);
+        detectionAlgorithm = 5;
+    }
+
     setBlinkButton.setOnClickListener(v -> {
-        intent.putExtra(KEY_DETECTION_MODE, "isBlinkDetection");
+        intent.putExtra(KEY_DETECTION_MODE, FACE_BLINK_DETECTION);
         restartWith(intent);
     });
 
     setFaceMovementButton.setOnClickListener(v -> {
-        intent.putExtra(KEY_DETECTION_MODE, "isMovementDetection");
+        intent.putExtra(KEY_DETECTION_MODE, FACE_MOVEMENT_DETECTION);
         restartWith(intent);
     });
 
-    setBothButton.setOnClickListener(v -> {
-        intent.putExtra(KEY_DETECTION_MODE, "isBothDetection");
+    setBothOneButton.setOnClickListener(v -> {
+        intent.putExtra(KEY_DETECTION_MODE, FACE_BOTH_TWO_DETECTION);
+        restartWith(intent);
+    });
+
+    setBothTwoButton.setOnClickListener(v -> {
+        intent.putExtra(KEY_DETECTION_MODE, FACE_BOTH_THREE_DETECTION);
+        restartWith(intent);
+    });
+
+    setBothThreeButton.setOnClickListener(v -> {
+        intent.putExtra(KEY_DETECTION_MODE, FACE_BOTH_FOUR_DETECTION);
+        restartWith(intent);
+    });
+
+    setBothFourButton.setOnClickListener(v -> {
+        intent.putExtra(KEY_DETECTION_MODE, FACE_BOTH_FIVE_DETECTION);
+        restartWith(intent);
+    });
+
+    setBothFiveButton.setOnClickListener(v -> {
+        intent.putExtra(KEY_DETECTION_MODE, FACE_BOTH_ONE_DETECTION);
         restartWith(intent);
     });
   }
